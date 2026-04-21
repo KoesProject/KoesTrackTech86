@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KoesTrackTech 86 — Advanced Structural Integrity Monitor</title>
+    
+    <!-- Premium Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    
+    <!-- Icons & Tools -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <style>
+        :root {
+            --bg-deep: #05070a;
+            --bg-surface: rgba(13, 17, 23, 0.8);
+            --bg-card: rgba(22, 27, 34, 0.4);
+            --accent: #00ffa3; /* Electric Emerald */
+            --accent-glow: rgba(0, 255, 163, 0.15);
+            --primary: #00d4ff; /* Precision Blue */
+            --primary-glow: rgba(0, 212, 255, 0.15);
+            --warning: #ffb800;
+            --danger: #ff4d4d;
+            --safe: #00ffa3;
+            --text-main: #f0f6fc;
+            --text-dim: #8b949e;
+            --border: rgba(255, 255, 255, 0.08);
+            --glass: blur(20px) saturate(180%);
+            --font-main: 'Plus Jakarta Sans', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body { 
+            background: var(--bg-deep); 
+            color: var(--text-main); 
+            font-family: var(--font-main); 
+            min-height: 100vh;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Ambient Background */
+        .ambient-bg {
+            position: fixed; inset: 0; z-index: -1;
+            background: 
+                radial-gradient(circle at 0% 0%, rgba(0, 212, 255, 0.1) 0%, transparent 40%),
+                radial-gradient(circle at 100% 100%, rgba(0, 255, 163, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.02) 0%, transparent 50%);
+        }
+        
+        .grid-overlay {
+            position: fixed; inset: 0; z-index: -1;
+            background-image: 
+                linear-gradient(var(--border) 1px, transparent 1px),
+                linear-gradient(90deg, var(--border) 1px, transparent 1px);
+            background-size: 50px 50px;
+            mask-image: radial-gradient(circle at 50% 50%, black, transparent 90%);
+            opacity: 0.2;
+        }
+
+        /* --- NAVIGATION --- */
+        nav {
+            height: 80px; padding: 0 40px;
+            display: flex; align-items: center; justify-content: space-between;
+            background: rgba(5, 7, 10, 0.6);
+            backdrop-filter: var(--glass);
+            border-bottom: 1px solid var(--border);
+            position: sticky; top: 0; z-index: 1000;
+        }
+
+        .nav-logo {
+            display: flex; align-items: center; gap: 14px;
+            font-weight: 800; font-size: 22px; letter-spacing: -0.5px;
+            color: white;
+            text-decoration: none;
+        }
+
+        .logo-box {
+            width: 42px; height: 42px; border-radius: 12px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            display: flex; align-items: center; justify-content: center;
+            color: var(--bg-deep); box-shadow: 0 0 20px var(--primary-glow);
+        }
+
+        .logo-text span { color: var(--primary); }
+        .version-tag {
+            font-family: var(--font-mono); font-size: 10px; color: var(--text-dim);
+            padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px;
+        }
+
+        /* --- DASHBOARD LAYOUT --- */
+        main {
+            padding: 32px 40px;
+            display: grid;
+            grid-template-columns: 360px 1fr 340px;
+            gap: 24px;
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+
+        .panel {
+            display: flex; flex-direction: column; gap: 24px;
+        }
+
+        .card {
+            background: var(--bg-surface);
+            backdrop-filter: var(--glass);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 24px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-header {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;
+        }
+
+        .card-title {
+            font-size: 12px; font-weight: 800; color: var(--text-dim);
+            text-transform: uppercase; letter-spacing: 1.5px;
+            display: flex; align-items: center; gap: 8px;
+        }
+
+        /* --- INPUTS --- */
+        .form-group { margin-bottom: 18px; }
+        .form-label {
+            display: block; font-size: 11px; font-weight: 700; color: var(--text-dim);
+            margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+
+        input, select {
+            width: 100%; height: 48px; background: rgba(0,0,0,0.3);
+            border: 1px solid var(--border); border-radius: 12px;
+            padding: 0 16px; color: white; font-family: inherit; font-size: 14px;
+            transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        input:focus, select:focus {
+            border-color: var(--primary); outline: none; background: rgba(0,0,0,0.5);
+            box-shadow: 0 0 0 4px var(--primary-glow);
+        }
+
+        .range-container { margin-top: 10px; }
+        input[type="range"] {
+            -webkit-appearance: none; height: 6px; background: rgba(255,255,255,0.05);
+            border-radius: 10px; cursor: pointer; padding: 0;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 18px; height: 18px; background: var(--primary);
+            border-radius: 50%; box-shadow: 0 0 10px var(--primary-glow);
+        }
+
+        .btn-analyze {
+            width: 100%; height: 56px; border-radius: 14px; border: none;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: var(--bg-deep); font-weight: 800; font-size: 15px;
+            cursor: pointer; transition: 0.3s;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn-analyze:hover { transform: translateY(-3px); box-shadow: 0 12px 30px var(--primary-glow); }
+        .btn-analyze:active { transform: translateY(0); }
+
+        /* --- CENTRAL VISUALIZER --- */
+        .visualizer-container {
+            background: #000; border-radius: 28px;
+            position: relative; overflow: hidden;
+            border: 1px solid var(--border);
+            box-shadow: 0 40px 80px -20px rgba(0,0,0,0.6);
+            display: flex; flex-direction: column; height: 100%;
+        }
+
+        .vehicle-stage {
+            flex: 1; position: relative; display: flex; align-items: center; justify-content: center;
+            background: radial-gradient(circle at 50% 50%, #111 0%, #000 70%);
+            transition: background 0.5s ease;
+            overflow: hidden;
+        }
+
+        .visualizer-viewport {
+            position: relative; width: 85%; max-width: 900px;
+            aspect-ratio: 2 / 1; display: flex; align-items: center; justify-content: center;
+        }
+
+        .vehicle-svg { width: 100%; height: 100%; opacity: 0.8; transition: 0.5s cubic-bezier(0.16, 1, 0.3, 1); filter: drop-shadow(0 0 20px rgba(0,212,255,0.2)); transform-origin: center; }
+        
+        .scan-line {
+            position: absolute; left: 0; right: 0; height: 4px;
+            background: linear-gradient(90deg, transparent, var(--primary), transparent);
+            box-shadow: 0 0 20px var(--primary);
+            z-index: 10; display: none;
+            animation: scanMove 2s linear infinite;
+        }
+
+        @keyframes scanMove { 0% { top: 0%; } 100% { top: 100%; } }
+
+        .hotspot {
+            position: absolute; width: 20px; height: 20px; border-radius: 50%;
+            border: 2px solid var(--primary); background: rgba(0, 212, 255, 0.2);
+            cursor: move; transition: transform 0.2s, box-shadow 0.2s;
+            display: flex; align-items: center; justify-content: center;
+            z-index: 100;
+        }
+        .hotspot::after { content: ''; position: absolute; inset: -12px; border-radius: 50%; border: 1px solid var(--primary); opacity: 0; transition: 0.3s; pointer-events: none; }
+        .hotspot:hover::after { opacity: 1; transform: scale(1.1); }
+        .hotspot:active { cursor: grabbing; transform: scale(0.9); }
+        .hotspot.active { background: var(--primary); box-shadow: 0 0 25px var(--primary); color: #000; font-weight: 800; font-size: 10px; }
+        .hotspot:hover::before { 
+            content: 'RIGHT-CLICK TO REMOVE'; position: absolute; bottom: -25px; 
+            white-space: nowrap; font-size: 8px; color: var(--danger); font-weight: 800;
+        }
+        
+        .vehicle-target-area {
+            position: absolute; inset: 0; cursor: crosshair; z-index: 50;
+        }
+
+        /* --- METRICS --- */
+        .metric-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+        .metric-card {
+            background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+            border-radius: 16px; padding: 18px; text-align: center;
+        }
+        .metric-val { font-family: var(--font-mono); font-size: 28px; font-weight: 700; color: white; display: block; }
+        .metric-label { font-size: 10px; color: var(--text-dim); text-transform: uppercase; font-weight: 700; }
+
+        /* --- STATUS PILLS --- */
+        .status-pill {
+            padding: 6px 14px; border-radius: 100px; font-size: 11px; font-weight: 800;
+            display: inline-flex; align-items: center; gap: 8px;
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .pill-standby { background: rgba(139, 148, 158, 0.1); color: var(--text-dim); border: 1px solid var(--border); }
+        .pill-safe { background: rgba(0, 255, 163, 0.1); color: var(--safe); border: 1px solid var(--safe); }
+        .pill-warning { background: rgba(255, 184, 0, 0.1); color: var(--warning); border: 1px solid var(--warning); }
+        .pill-danger { background: rgba(255, 77, 77, 0.1); color: var(--danger); border: 1px solid var(--danger); }
+
+        /* --- TABLE --- */
+        .data-table { width: 100%; border-collapse: collapse; }
+        .data-table th { text-align: left; padding: 12px; font-size: 11px; color: var(--text-dim); border-bottom: 1px solid var(--border); }
+        .data-table td { padding: 14px 12px; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.02); }
+
+        /* --- SCROLLBAR --- */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-deep); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+        /* --- PRINT STYLES --- */
+        @media print {
+            body { background: white !important; color: black !important; }
+            nav, .panel, .ambient-bg, .grid-overlay, .modal, .btn-analyze, .range-container, .status-pill, #scanResult { display: none !important; }
+            main { display: none !important; }
+            #report-printout { display: block !important; }
+            .card { border: none !important; backdrop-filter: none !important; background: transparent !important; }
+        }
+
+        #report-printout {
+            display: none; padding: 40px; color: black !important; font-family: 'Plus Jakarta Sans', sans-serif;
+            background: white !important; border: 2px solid #000;
+        }
+        .report-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #000; padding-bottom: 20px; margin-bottom: 30px; }
+        .report-title { font-size: 28px; font-weight: 800; text-transform: uppercase; color: black !important; }
+        .report-meta { font-family: var(--font-mono); font-size: 11px; color: black !important; }
+        .report-section { margin-bottom: 30px; }
+        .report-section h3 { border-bottom: 1px solid #ddd; padding-bottom: 8px; margin-bottom: 15px; font-size: 14px; text-transform: uppercase; color: black !important; display: flex; align-items: center; gap: 8px; }
+        .report-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .report-table th, .report-table td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 12px; color: black !important; }
+        .report-table th { background: #f5f5f5; color: black !important; }
+        .report-footer { margin-top: 50px; display: flex; justify-content: space-between; font-size: 12px; border-top: 1px solid #ddd; padding-top: 20px; color: black !important; }
+
+        @media (max-width: 1400px) {
+            main { grid-template-columns: 340px 1fr; }
+            .panel-right { grid-column: span 2; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+        }
+
+        /* MODAL SETTINGS */
+        .modal {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(10px); z-index: 2000;
+            display: none; align-items: center; justify-content: center;
+        }
+        .modal-content {
+            background: var(--bg-surface); border: 1px solid var(--border);
+            border-radius: 24px; padding: 40px; width: 500px; position: relative;
+        }
+    </style>
+</head>
+<body>
+    <div class="ambient-bg"></div>
+    <div class="grid-overlay"></div>
+
+    <nav>
+        <div class="nav-logo">
+            <div class="logo-box"><i data-lucide="shield-check" size="24"></i></div>
+            <div class="logo-text">KOES<span>TRACKTECH</span> 86</div>
+        </div>
+        <div style="display: flex; gap: 24px; align-items: center;">
+            <div id="system-time" style="font-family: var(--font-mono); font-size: 13px; color: var(--text-dim);">00:00:00</div>
+            <div class="version-tag">STABLE V3.8.6</div>
+            <button onclick="toggleSettings(true)" style="background: transparent; border: none; color: white; cursor: pointer;"><i data-lucide="settings"></i></button>
+        </div>
+    </nav>
+
+    <!-- SETTINGS MODAL -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <h2 style="font-size: 24px; font-weight: 800; margin-bottom: 24px;">System Parameters</h2>
+            <div class="form-group">
+                <label class="form-label">Analysis Sensitivity</label>
+                <input type="range" min="0.5" max="2.0" step="0.1" value="1.0">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Diagnostic Depth Threshold</label>
+                <input type="number" value="10" class="form-input">
+            </div>
+            <div style="display: flex; gap: 12px; margin-top: 32px;">
+                <button class="btn-analyze" style="margin:0; flex:1;" onclick="toggleSettings(false)">SAVE CHANGES</button>
+                <button class="btn-analyze" style="margin:0; width:100px; background:var(--bg-card); color:white; border:1px solid var(--border);" onclick="toggleSettings(false)">CLOSE</button>
+            </div>
+        </div>
+    </div>
+
+    <main>
+        <!-- LEFT: PARAMETERS -->
+        <div class="panel">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><i data-lucide="settings-2" size="16"></i> Inspection Parameters</div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Vehicle Classification</label>
+                    <select id="vType" onchange="updateVehicleVisual()">
+                        <option value="mbt">Main Battle Tank (MBT)</option>
+                        <option value="ifv">Infantry Fighting Vehicle (IFV)</option>
+                        <option value="apc">Armored Personnel Carrier (APC)</option>
+                        <option value="scout">Reconnaissance Scout</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Deployment Region</label>
+                    <select id="region" onchange="updateRegionVisual()">
+                        <option value="arid">Arid / Desert (Dust Heavy)</option>
+                        <option value="tropic">Tropical / Jungle (High Humidity)</option>
+                        <option value="arctic">Arctic / Sub-Zero</option>
+                        <option value="urban">Urban / Industrial</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Operational Intensity</label>
+                    <div class="range-container">
+                        <input type="range" id="intensity" min="1" max="100" value="50">
+                        <div style="display: flex; justify-content: space-between; margin-top: 8px; font-size: 10px; color: var(--text-dim);">
+                            <span>LOW IMPACT</span>
+                            <span style="color: var(--primary); font-weight: 800;" id="intensityVal">50%</span>
+                            <span>COMBAT ZONE</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="height: 1px; background: var(--border); margin: 24px 0;"></div>
+
+                <div class="form-group">
+                    <label class="form-label">Crack Morphology (Manual Entry)</label>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <input type="number" id="cLength" placeholder="Len (mm)" step="0.1">
+                        <input type="number" id="cWidth" placeholder="Wid (mm)" step="0.01">
+                    </div>
+                    <input type="number" id="cDepth" placeholder="Depth/Penetration (mm)" step="0.1" style="margin-top: 12px;">
+                </div>
+
+                <button class="btn-analyze" onclick="startAnalysis()">
+                    <i data-lucide="play-circle"></i> INITIATE STRUCTURAL SCAN
+                </button>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><i data-lucide="history" size="16"></i> Recent Scan Logs</div>
+                </div>
+                <div id="logs" style="max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px;">
+                    <div style="text-align: center; padding: 20px; color: var(--text-dim); font-size: 12px;">Waiting for first analysis...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CENTER: VISUALIZER -->
+        <div class="panel">
+            <div class="visualizer-container">
+                <div class="card-header" style="position: absolute; top: 24px; left: 24px; right: 24px; z-index: 20;">
+                    <div class="status-pill pill-standby" id="statusPill">
+                        <div style="width: 8px; height: 8px; border-radius: 50%; background: currentColor;"></div>
+                        SYSTEM STANDBY
+                    </div>
+                    <div style="display: flex; gap: 12px;">
+                        <button onclick="toggleZoom()" class="btn-icon" style="background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: white; border-radius: 8px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                            <i data-lucide="zoom-in" size="18"></i>
+                        </button>
+                        <button onclick="resetSystem()" class="btn-icon" style="background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: white; border-radius: 8px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                            <i data-lucide="rotate-ccw" size="18"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="vehicle-stage" id="vStage">
+                    <div class="scan-line" id="scanLine"></div>
+                    
+                    <div class="visualizer-viewport" id="vViewport">
+                        <div id="vContainer" style="width: 100%; height: 100%; position: relative;">
+                            <div class="vehicle-target-area" onclick="placeMarker(event)"></div>
+                            <svg id="v-svg" class="vehicle-svg" viewBox="0 0 800 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <!-- Tactical HUD Grids -->
+                                <circle cx="400" cy="200" r="180" stroke="rgba(0,212,255,0.05)" stroke-width="1" />
+                                <line x1="200" y1="200" x2="600" y2="200" stroke="rgba(0,212,255,0.05)" />
+                                <line x1="400" y1="50" x2="400" y2="350" stroke="rgba(0,212,255,0.05)" />
+                                
+                                <!-- MBT Enhanced Professional -->
+                                <defs>
+                                    <linearGradient id="armorGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                                        <stop offset="0%" style="stop-color:#2a3340;stop-opacity:1" />
+                                        <stop offset="100%" style="stop-color:#161d26;stop-opacity:1" />
+                                    </linearGradient>
+                                </defs>
+                                <path d="M120 320L180 290H620L680 320V360L650 380H150L120 360V320Z" fill="url(#armorGrad)" stroke="#00d4ff" stroke-width="2"/>
+                                <path d="M280 290V240L320 210H560L600 240V290" fill="url(#armorGrad)" stroke="#00d4ff" stroke-width="2"/>
+                                <path d="M560 210L520 160H260L220 210" fill="url(#armorGrad)" stroke="#00d4ff" stroke-width="2"/>
+                                <rect x="520" y="175" width="260" height="15" fill="#161d26" stroke="#00d4ff" stroke-width="2"/>
+                                <line x1="220" y1="210" x2="600" y2="210" stroke="#00d4ff" stroke-width="1" opacity="0.3"/>
+                                
+                                <!-- Detailed Wheels -->
+                                <circle cx="160" cy="355" r="28" fill="#0D1117" stroke="#00d4ff" stroke-width="1.5"/><circle cx="160" cy="355" r="12" stroke="#00d4ff" stroke-width="1" opacity="0.5"/>
+                                <circle cx="230" cy="355" r="28" fill="#0D1117" stroke="#00d4ff" stroke-width="1.5"/><circle cx="230" cy="355" r="12" stroke="#00d4ff" stroke-width="1" opacity="0.5"/>
+                                <circle cx="300" cy="355" r="28" fill="#0D1117" stroke="#00d4ff" stroke-width="1.5"/><circle cx="300" cy="355" r="12" stroke="#00d4ff" stroke-width="1" opacity="0.5"/>
+                                <circle cx="370" cy="355" r="28" fill="#0D1117" stroke="#00d4ff" stroke-width="1.5"/><circle cx="370" cy="355" r="12" stroke="#00d4ff" stroke-width="1" opacity="0.5"/>
+                                <circle cx="440" cy="355" r="28" fill="#0D1117" stroke="#00d4ff" stroke-width="1.5"/><circle cx="440" cy="355" r="12" stroke="#00d4ff" stroke-width="1" opacity="0.5"/>
+                                <circle cx="510" cy="355" r="28" fill="#0D1117" stroke="#00d4ff" stroke-width="1.5"/><circle cx="510" cy="355" r="12" stroke="#00d4ff" stroke-width="1" opacity="0.5"/>
+                                <circle cx="580" cy="355" r="28" fill="#0D1117" stroke="#00d4ff" stroke-width="1.5"/><circle cx="580" cy="355" r="12" stroke="#00d4ff" stroke-width="1" opacity="0.5"/>
+                                <circle cx="650" cy="355" r="28" fill="#0D1117" stroke="#00d4ff" stroke-width="1.5"/><circle cx="650" cy="355" r="12" stroke="#00d4ff" stroke-width="1" opacity="0.5"/>
+                            </svg>
+                            
+                            <!-- Interaction Points -->
+                            <div id="hotspots">
+                                <div class="hotspot" style="top: 45%; left: 35%;" onmousedown="startDrag(event, 'Turret Section')">1</div>
+                                <div class="hotspot" style="top: 65%; left: 20%;" onmousedown="startDrag(event, 'Front Glacis')">2</div>
+                                <div class="hotspot" style="top: 80%; left: 45%;" onmousedown="startDrag(event, 'Lower Chassis')">3</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="background: rgba(0,0,0,0.4); padding: 24px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-size: 10px; color: var(--text-dim); text-transform: uppercase; font-weight: 800;">Target Inspection Zone</div>
+                        <div id="selectedZone" style="font-size: 16px; font-weight: 700; color: white;">SELECT A HOTSPOT TO BEGIN</div>
+                    </div>
+                    <div id="scanResult" style="display: none;">
+                        <button onclick="exportReport()" style="background: rgba(0, 212, 255, 0.1); border: 1px solid var(--primary); color: var(--primary); padding: 8px 16px; border-radius: 8px; font-size: 11px; font-weight: 800; cursor: pointer;">
+                            GENERATE PDF REPORT
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT: RESULTS -->
+        <div class="panel panel-right">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><i data-lucide="bar-chart-3" size="16"></i> Critical Metrics</div>
+                </div>
+                
+                <div class="metric-grid">
+                    <div class="metric-card">
+                        <span class="metric-label">Impact Index</span>
+                        <span class="metric-val" id="mIndex">--</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Armor Integrity</span>
+                        <span class="metric-val" id="mIntegrity">--</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Failure Risk</span>
+                        <span class="metric-val" id="mRisk">--</span>
+                    </div>
+                </div>
+
+                <div style="margin-top: 24px;">
+                    <div class="card-title" style="margin-bottom: 16px;">Structural Health Trend</div>
+                    <canvas id="healthChart" height="150"></canvas>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><i data-lucide="file-text" size="16"></i> AI Diagnosis</div>
+                </div>
+                
+                <div id="emptyVerdict" style="text-align: center; padding: 40px 0; color: var(--text-dim);">
+                    <i data-lucide="cpu" size="48" style="opacity: 0.2; margin-bottom: 16px;"></i>
+                    <p style="font-size: 13px;">Awaiting structural data input for neural evaluation.</p>
+                </div>
+
+                <div id="verdictContent" style="display: none;">
+                    <div style="margin-bottom: 20px;">
+                        <div id="verdictTitle" style="font-size: 20px; font-weight: 800; margin-bottom: 8px;">--</div>
+                        <p id="verdictDesc" style="font-size: 13px; color: var(--text-dim); line-height: 1.6;">--</p>
+                    </div>
+
+                    <table class="data-table">
+                        <thead><tr><th>Parameter</th><th>Value</th><th>Status</th></tr></thead>
+                        <tbody id="resTable"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- FORMAL REPORT TEMPLATE (Hidden from UI) -->
+    <div id="report-printout">
+        <div class="report-header">
+            <div>
+                <div class="report-title">Structural Integrity Report</div>
+                <div style="font-size: 14px; font-weight: 600;">KOES TRACKTECH 86 - ADVANCED MONITORING</div>
+            </div>
+            <div class="report-meta" style="text-align: right;">
+                <div>REPORT ID: <span id="rID">--</span></div>
+                <div>DATE: <span id="rDate">--</span></div>
+                <div>STATUS: <span id="rStatus">--</span></div>
+            </div>
+        </div>
+
+        <div class="report-section">
+            <h3 style="display: flex; align-items: center; gap: 8px;"><i data-lucide="info" size="14"></i> Vehicle & Mission Data</h3>
+            <table class="report-table">
+                <tr><th>Vehicle Classification</th><td id="rType">--</td><th>Deployment Region</th><td id="rRegion">--</td></tr>
+                <tr><th>Operational Intensity</th><td id="rInten">--</td><th>Inspection Zone</th><td id="rZone">--</td></tr>
+            </table>
+        </div>
+
+        <div class="report-section">
+            <h3><i data-lucide="activity" size="14"></i> Structural Measurements</h3>
+            <table class="report-table">
+                <tr><th>Crack Length</th><td id="rLength">--</td><th>Crack Width</th><td id="rWidth">--</td></tr>
+                <tr><th>Penetration Depth</th><td id="rDepth">--</td><th>Structural Loss %</th><td id="rLoss">--</td></tr>
+            </table>
+        </div>
+
+        <div class="report-section">
+            <h3><i data-lucide="shield-alert" size="14"></i> AI Diagnostic Assessment</h3>
+            <div style="padding: 20px; border: 1px solid #ddd; background: #fafafa; border-radius: 8px;">
+                <div id="rVerdictTitle" style="font-size: 18px; font-weight: 800; margin-bottom: 10px;">--</div>
+                <p id="rVerdictDesc" style="font-size: 13px; line-height: 1.6; color: #444;">--</p>
+            </div>
+            <p style="font-size: 10px; color: #888; margin-top: 10px;">* This diagnosis is generated by the KoesTrackTech 86 Neural Processing Unit and should be verified by a certified structural engineer.</p>
+        </div>
+
+        <div class="report-footer">
+            <div>
+                <strong>Generated By:</strong><br>
+                KoesTrackTech 86 System<br>
+                Terminal ID: KTT-OFFLINE-86
+            </div>
+            <div style="text-align: right;">
+                <strong>Certification Signature:</strong><br><br>
+                ___________________________<br>
+                (Commanding Engineer / Inspector)
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Initialization ---
+        lucide.createIcons();
+        
+        // --- System Clock ---
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById('system-time').innerText = now.toLocaleTimeString('id-ID', { hour12: false });
+        }, 1000);
+
+        // --- Chart ---
+        const ctx = document.getElementById('healthChart').getContext('2d');
+        const healthChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: Array(20).fill(''),
+                datasets: [{
+                    label: 'Armor Integrity',
+                    data: Array(20).fill(100),
+                    borderColor: '#00d4ff',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    fill: { target: 'origin', above: 'rgba(0, 212, 255, 0.05)' },
+                    tension: 0.4
+                }]
+            },
+            options: { 
+                plugins: { legend: { display: false } },
+                scales: { 
+                    x: { display: false },
+                    y: { min: 0, max: 100, ticks: { color: '#8b949e', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.02)' } }
+                },
+                animation: { duration: 0 }
+            }
+        });
+
+        // --- Logic ---
+        let selectedZoneName = null;
+        let isZoomed = false;
+        let activeHotspot = null;
+        let markerCount = 3;
+
+        function toggleSettings(show) {
+            document.getElementById('settingsModal').style.display = show ? 'flex' : 'none';
+        }
+
+        // --- Drag & Drop Logic ---
+        function startDrag(e, name) {
+            e.stopPropagation();
+            activeHotspot = e.target;
+            selectedZoneName = name;
+            document.getElementById('selectedZone').innerText = name + ' (MOVING)';
+            document.querySelectorAll('.hotspot').forEach(h => h.classList.remove('active'));
+            activeHotspot.classList.add('active');
+            
+            document.onmousemove = doDrag;
+            document.onmouseup = stopDrag;
+        }
+
+        function doDrag(e) {
+            if (!activeHotspot) return;
+            const viewport = document.getElementById('vViewport').getBoundingClientRect();
+            let x = ((e.clientX - viewport.left) / viewport.width) * 100;
+            let y = ((e.clientY - viewport.top) / viewport.height) * 100;
+            
+            x = Math.max(0, Math.min(100, x));
+            y = Math.max(0, Math.min(100, y));
+            
+            activeHotspot.style.left = x + '%';
+            activeHotspot.style.top = y + '%';
+        }
+
+        function stopDrag() {
+            if(activeHotspot) {
+                document.getElementById('selectedZone').innerText = selectedZoneName + ' (POSITIONED)';
+            }
+            activeHotspot = null;
+            document.onmousemove = null;
+            document.onmouseup = null;
+        }
+
+        function placeMarker(e) {
+            const viewport = document.getElementById('vViewport').getBoundingClientRect();
+            let x = ((e.clientX - viewport.left) / viewport.width) * 100;
+            let y = ((e.clientY - viewport.top) / viewport.height) * 100;
+            
+            markerCount++;
+            const name = `Damage Point #${markerCount}`;
+            const div = document.createElement('div');
+            div.className = 'hotspot active';
+            div.style.left = x + '%';
+            div.style.top = y + '%';
+            div.innerText = markerCount;
+            div.onmousedown = (ev) => startDrag(ev, name);
+            div.oncontextmenu = (ev) => {
+                ev.preventDefault();
+                div.remove();
+                addLog(`Marker removed: ${name}`, 'warning');
+            };
+            
+            document.getElementById('hotspots').appendChild(div);
+            selectZone(name, x, y);
+            addLog(`Custom marker placed at ${x.toFixed(1)}%, ${y.toFixed(1)}%`, 'primary');
+        }
+
+        function toggleZoom() {
+            isZoomed = !isZoomed;
+            const svg = document.getElementById('v-svg');
+            svg.style.transform = isZoomed ? 'scale(1.8)' : 'scale(1)';
+            addLog(isZoomed ? 'Diagnostics Zoom Enabled' : 'Diagnostics Zoom Reset', 'primary');
+        }
+
+        function resetSystem() {
+            if(!confirm('Reset all structural parameters and diagnostics?')) return;
+            document.getElementById('cLength').value = '';
+            document.getElementById('cWidth').value = '';
+            document.getElementById('cDepth').value = '';
+            document.getElementById('intensity').value = 50;
+            document.getElementById('intensityVal').innerText = '50%';
+            document.getElementById('selectedZone').innerText = 'SELECT A HOTSPOT TO BEGIN';
+            document.querySelectorAll('.hotspot').forEach(h => h.classList.remove('active'));
+            document.getElementById('scanResult').style.display = 'none';
+            document.getElementById('emptyVerdict').style.display = 'block';
+            document.getElementById('verdictContent').style.display = 'none';
+            document.getElementById('statusPill').className = 'status-pill pill-standby';
+            document.getElementById('statusPill').innerText = 'SYSTEM STANDBY';
+            document.getElementById('mIndex').innerText = '--';
+            document.getElementById('mIntegrity').innerText = '--';
+            document.getElementById('mRisk').innerText = '--';
+            selectedZoneName = null;
+            if(isZoomed) toggleZoom();
+            addLog('System Parameters Reset', 'primary');
+        }
+
+        function updateRegionVisual() {
+            const region = document.getElementById('region').value;
+            const stage = document.getElementById('vStage');
+            stage.className = 'vehicle-stage stage-' + region;
+            addLog(`Environment adjusted: ${region.toUpperCase()}`, 'primary');
+        }
+
+        function updateVehicleVisual() {
+            const type = document.getElementById('vType').value;
+            const container = document.getElementById('vContainer');
+            
+            let svgContent = '';
+            let hotspotContent = '';
+
+            const hud = `<circle cx="400" cy="200" r="180" stroke="rgba(0,212,255,0.05)" stroke-width="1" /><line x1="200" y1="200" x2="600" y2="200" stroke="rgba(0,212,255,0.05)" /><line x1="400" y1="50" x2="400" y2="350" stroke="rgba(0,212,255,0.05)" /><defs><linearGradient id="armorGrad" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" style="stop-color:#2a3340;stop-opacity:1" /><stop offset="100%" style="stop-color:#161d26;stop-opacity:1" /></linearGradient></defs>`;
+
+            if (type === 'mbt') {
+                svgContent = `<svg id="v-svg" class="vehicle-svg" viewBox="0 0 800 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    ${hud}
+                    <path d="M120 320L180 290H620L680 320V360L650 380H150L120 360V320Z" fill="url(#armorGrad)" stroke="#00d4ff" stroke-width="2"/>
+                    <path d="M280 290V240L320 210H560L600 240V290" fill="url(#armorGrad)" stroke="#00d4ff" stroke-width="2"/>
+                    <path d="M560 210L520 160H260L220 210" fill="url(#armorGrad)" stroke="#00d4ff" stroke-width="2"/>
+                    <rect x="520" y="175" width="260" height="15" fill="#161d26" stroke="#00d4ff" stroke-width="2"/>
+                    <circle cx="160" cy="355" r="28" fill="#0D1117" stroke="#00d4ff" stroke-width="1.5"/><circle cx="230" cy="355" r="28" fill="#0D1117" stroke="#00d4ff" stroke-width="1.5"/><circle cx="300" cy="355" r="28" fill="#0D1117" stroke="#00d4ff" stroke-width="1.5"/><circle cx="370" cy="355" r="28" fill="#0D1117" stroke="#00d4ff" stroke-width="1.5"/><circle cx="440" cy="355" r="28" fill="#0D1117" stroke="#00d4ff" stroke-width="1.5"/><circle cx="510" cy="355" r="28" fill="#0D1117" stroke="#00d4ff" stroke-width="1.5"/><circle cx="580" cy="355" r="28" fill="#0D1117" stroke="#00d4ff" stroke-width="1.5"/><circle cx="650" cy="355" r="28" fill="#0D1117" stroke="#00d4ff" stroke-width="1.5"/>
+                </svg>`;
+                hotspotContent = `
+                    <div class="hotspot" style="top: 45%; left: 35%;" onmousedown="startDrag(event, 'Turret Section')" oncontextmenu="event.preventDefault(); this.remove();">1</div>
+                    <div class="hotspot" style="top: 65%; left: 20%;" onmousedown="startDrag(event, 'Front Glacis')" oncontextmenu="event.preventDefault(); this.remove();">2</div>
+                    <div class="hotspot" style="top: 80%; left: 45%;" onmousedown="startDrag(event, 'Lower Chassis')" oncontextmenu="event.preventDefault(); this.remove();">3</div>`;
+            } else if (type === 'ifv') {
+                svgContent = `<svg id="v-svg" class="vehicle-svg" viewBox="0 0 800 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    ${hud}
+                    <path d="M100 320L150 270H550L600 320H650V360H100V320Z" fill="url(#armorGrad)" stroke="#00d4ff" stroke-width="2"/>
+                    <path d="M250 270V220H480V270" fill="url(#armorGrad)" stroke="#00d4ff" stroke-width="2"/>
+                    <rect x="440" y="230" width="180" height="12" fill="#161d26" stroke="#00d4ff" stroke-width="2"/>
+                    <circle cx="160" cy="350" r="22" fill="#0D1711" stroke="#00d4ff" stroke-width="1.5"/><circle cx="230" cy="350" r="22" fill="#0D1711" stroke="#00d4ff" stroke-width="1.5"/><circle cx="300" cy="350" r="22" fill="#0D1711" stroke="#00d4ff" stroke-width="1.5"/><circle cx="370" cy="350" r="22" fill="#0D1711" stroke="#00d4ff" stroke-width="1.5"/><circle cx="440" cy="350" r="22" fill="#0D1711" stroke="#00d4ff" stroke-width="1.5"/><circle cx="510" cy="350" r="22" fill="#0D1711" stroke="#00d4ff" stroke-width="1.5"/>
+                </svg>`;
+                hotspotContent = `
+                    <div class="hotspot" style="top: 55%; left: 45%;" onmousedown="startDrag(event, 'Cannon Bay')" oncontextmenu="event.preventDefault(); this.remove();">1</div>
+                    <div class="hotspot" style="top: 70%; left: 20%;" onmousedown="startDrag(event, 'Incline Armor')" oncontextmenu="event.preventDefault(); this.remove();">2</div>`;
+            } else if (type === 'apc' || type === 'scout') {
+                svgContent = `<svg id="v-svg" class="vehicle-svg" viewBox="0 0 800 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    ${hud}
+                    <path d="M150 330L220 270H520L590 330V370H150V330Z" fill="url(#armorGrad)" stroke="#00d4ff" stroke-width="2"/>
+                    <circle cx="220" cy="370" r="35" fill="#17150D" stroke="#00d4ff" stroke-width="2"/><circle cx="360" cy="370" r="35" fill="#17150D" stroke="#00d4ff" stroke-width="2"/><circle cx="500" cy="370" r="35" fill="#17150D" stroke="#00d4ff" stroke-width="2"/>
+                    <line x1="150" y1="330" x2="590" y2="330" stroke="#00d4ff" stroke-width="1" opacity="0.3"/>
+                </svg>`;
+                hotspotContent = `
+                    <div class="hotspot" style="top: 70%; left: 40%;" onmousedown="startDrag(event, 'Hull Main Body')" oncontextmenu="event.preventDefault(); this.remove();">1</div>
+                    <div class="hotspot" style="top: 85%; left: 25%;" onmousedown="startDrag(event, 'Wheel Hub F')" oncontextmenu="event.preventDefault(); this.remove();">2</div>`;
+            }
+
+            container.innerHTML = `<div class="vehicle-target-area" onclick="placeMarker(event)"></div>` + svgContent + `<div id="hotspots">${hotspotContent}</div>`;
+            lucide.createIcons();
+            markerCount = 3; 
+            addLog(`Tactical view updated: ${type.toUpperCase()}`, 'primary');
+        }
+
+        function selectZone(name, x, y) {
+            selectedZoneName = name;
+            document.getElementById('selectedZone').innerText = name;
+            document.querySelectorAll('.hotspot').forEach(h => h.classList.remove('active'));
+            event.target.classList.add('active');
+            addLog(`Targeting zone: ${name}`, 'primary');
+        }
+
+        document.getElementById('intensity').oninput = (e) => {
+            document.getElementById('intensityVal').innerText = e.target.value + '%';
+        };
+
+        function startAnalysis() {
+            if (!selectedZoneName) {
+                alert('Please select a hull zone first!');
+                return;
+            }
+
+            const L = parseFloat(document.getElementById('cLength').value) || 0;
+            const W = parseFloat(document.getElementById('cWidth').value) || 0;
+            const D = parseFloat(document.getElementById('cDepth').value) || 0;
+            const Inten = parseInt(document.getElementById('intensity').value);
+
+            if (L <= 0 || W <= 0) {
+                alert('Invalid dimensions entered.');
+                return;
+            }
+
+            // Scanning Animation
+            const scanLine = document.getElementById('scanLine');
+            scanLine.style.display = 'block';
+            document.getElementById('statusPill').className = 'status-pill pill-warning';
+            document.getElementById('statusPill').innerText = 'SCANNING...';
+
+            setTimeout(() => {
+                scanLine.style.display = 'none';
+                processResults(L, W, D, Inten);
+            }, 2500);
+        }
+
+        function processResults(L, W, D, Inten) {
+            // Calculation Algorithm
+            const crackIndex = ((L * W * D) / 500) * (Inten/50);
+            const normalizedIndex = Math.min(100, crackIndex.toFixed(1));
+            const integrity = (100 - (normalizedIndex * 0.8)).toFixed(1);
+            
+            let severity = 'AMER'; 
+            let status = 'safe';
+            let title = 'STRUCTURAL STABLE';
+            let desc = 'No significant structural risk detected. Vehicle is operational for standard deployment.';
+            
+            if (normalizedIndex > 20) { status = 'warning'; severity = 'WARN'; title = 'MONITORING REQUIRED'; desc = 'Minor crack detected. Surface maintenance recommended within next 48 hours.'; }
+            if (normalizedIndex > 50) { status = 'danger'; severity = 'CRIT'; title = 'FAILURE RISK DETECTED'; desc = 'Significant structural compromise. Immediate repair recommended. Combat deployment restricted.'; }
+            if (normalizedIndex > 80) { status = 'danger'; severity = 'EMER'; title = 'IMMEDIATE WITHDRAWAL'; desc = 'Critical structural integrity failure. Risk of hull breach. Do not engage.'; }
+
+            // UI Update
+            document.getElementById('mIndex').innerText = normalizedIndex;
+            document.getElementById('mIntegrity').innerText = integrity + '%';
+            document.getElementById('mRisk').innerText = severity;
+            
+            document.getElementById('mIndex').style.color = status === 'safe' ? 'var(--accent)' : (status === 'warning' ? 'var(--warning)' : 'var(--danger)');
+
+            document.getElementById('emptyVerdict').style.display = 'none';
+            document.getElementById('verdictContent').style.display = 'block';
+            document.getElementById('verdictTitle').innerText = title;
+            document.getElementById('verdictTitle').style.color = status === 'safe' ? 'var(--accent)' : (status === 'warning' ? 'var(--warning)' : 'var(--danger)');
+            document.getElementById('verdictDesc').innerText = desc;
+            
+            document.getElementById('statusPill').className = 'status-pill pill-' + status;
+            document.getElementById('statusPill').innerText = 'DIAGNOSIS COMPLETE';
+            document.getElementById('scanResult').style.display = 'block';
+
+            // Chart Update
+            healthChart.data.datasets[0].data.push(integrity);
+            healthChart.data.datasets[0].data.shift();
+            healthChart.update();
+
+            // Table
+            const table = document.getElementById('resTable');
+            table.innerHTML = `
+                <tr><td>Cracity Index</td><td>${normalizedIndex}</td><td><span class="status-pill pill-${status}">${status}</span></td></tr>
+                <tr><td>Penetration</td><td>${D}mm</td><td><span class="status-pill pill-${D > 10 ? 'danger' : 'safe'}">${D > 10 ? 'Deep' : 'Surface'}</span></td></tr>
+                <tr><td>Armor Loss</td><td>${(100-integrity).toFixed(1)}%</td><td><span class="status-pill pill-${status}">Eval</span></td></tr>
+            `;
+
+            addLog(`${title} - ${selectedZoneName}`, status);
+        }
+
+        function addLog(msg, type) {
+            const logs = document.getElementById('logs');
+            const time = new Date().toLocaleTimeString('id-ID', { hour12: false });
+            const item = document.createElement('div');
+            item.style.fontSize = '12px';
+            item.style.padding = '8px 12px';
+            item.style.background = 'rgba(255,255,255,0.02)';
+            item.style.borderLeft = `3px solid var(--${type === 'primary' ? 'primary' : (type === 'safe' ? 'accent' : (type === 'warning' ? 'warning' : 'danger'))})`;
+            item.innerHTML = `<span style="color:var(--text-dim); font-family:var(--font-mono)">[${time}]</span> ${msg}`;
+            logs.prepend(item);
+            if (logs.childNodes.length > 10) logs.lastChild.remove();
+        }
+
+        function exportReport() {
+            // Populate Report
+            const now = new Date();
+            document.getElementById('rID').innerText = 'KTT-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+            document.getElementById('rDate').innerText = now.toLocaleString('id-ID');
+            document.getElementById('rStatus').innerText = document.getElementById('statusPill').innerText;
+            
+            document.getElementById('rType').innerText = document.getElementById('vType').options[document.getElementById('vType').selectedIndex].text;
+            document.getElementById('rRegion').innerText = document.getElementById('region').options[document.getElementById('region').selectedIndex].text;
+            document.getElementById('rInten').innerText = document.getElementById('intensity').value + '%';
+            document.getElementById('rZone').innerText = selectedZoneName || 'General Inspection';
+            
+            document.getElementById('rLength').innerText = (document.getElementById('cLength').value || '0') + ' mm';
+            document.getElementById('rWidth').innerText = (document.getElementById('cWidth').value || '0') + ' mm';
+            document.getElementById('rDepth').innerText = (document.getElementById('cDepth').value || '0') + ' mm';
+            document.getElementById('rLoss').innerText = (100 - parseFloat(document.getElementById('mIntegrity').innerText)).toFixed(1) + '%';
+            
+            document.getElementById('rVerdictTitle').innerText = document.getElementById('verdictTitle').innerText;
+            document.getElementById('rVerdictDesc').innerText = document.getElementById('verdictDesc').innerText;
+
+            addLog('Generating formal PDF report...', 'primary');
+            
+            // Print
+            setTimeout(() => {
+                window.print();
+            }, 500);
+        }
+    </script>
+</body>
+</html>
